@@ -1,0 +1,382 @@
+---
+title: "R_CIA3_SP"
+author: "R Akhilandeshwari"
+date: "4/22/2021"
+output:
+  html_document: default
+  pdf_document: default
+---
+<BR>
+<BR>
+<hr>
+
+```{r}
+setwd('C:/Desktop/R/CIA3')
+getwd()
+```
+<hr>
+<CENTER><B><U>
+
+# TITLE   :   IMPACT OF DIFFERENT FACTORS ON STUDENT'S ACADEMICS
+
+</CENTER></B></U>
+
+<BR>
+
+## DOMAIN        :   EDUCATION
+## METHOD        :   RANDOM FOREST, XGBOOST
+## TECHNIQUE     :   REGRESSION
+
+<BR>
+<HR>
+<BR>
+
+
+<B><U>
+
+### PROJECT DESCRIPTION :-
+
+</b></u>
+
+**Today’s students are tomorrow’s citizens. But it is pathetic situation for all the individual because, though there are many resources available for students, they are unable to score equally good. There are many factors that is influencing the student’s academic performance. As we all know that, in present corporate world, the entry ticket for a job is the student’s academic score i.e., first clearance round. Based on the student’s academic score they are proceeded to further rounds. As we all know that the unemployment rate is also more. So, in order to decrease the unemployment rate and increase the economy we have to build strong grounds for the students, whereby they will simultaneously increase their academic score and overall growth of an individual is met.**
+
+<br>
+
+
+<b><u>
+
+### DATASET :- 
+
+</B></U>
+
+**The dataset consists of 480 student records and 17 features. The features are classified into three major categories:**
+**(1) Demographic features such as gender and nationality.** 
+**(2) Academic background features such as educational stage, grade Level and section.**
+**(3) Behavioral features such as raised hand on class, opening resources, answering survey by parents, and school satisfaction. **
+
+<BR>
+
+*This is an educational data set which is collected from learning management system (LMS) called Kalboard 360. Kalboard 360 is a multi-agent LMS, which has been designed to facilitate learning through the use of leading-edge technology. The dataset has nominal and numerical data. Source:Kaggle*
+
+<br>
+<Br>
+
+### Importing the data and analysing it
+```{r}
+sp <- read.csv('EDU_DATA.csv')
+print(ncol(sp))
+print(nrow(sp))
+```
+**We have 17 attributes with 480 records**
+
+<br>
+
+```{r}
+str(sp)
+```
+**Except  raisedhands, VisITedResources, AnnouncementsView, Discussion rest all attributes are categorical.**
+
+<br>
+
+## EXPLORATORY DATA ANALYSIS
+
+<BR>
+
+### 1. Checking the missing values in the data
+```{r}
+colSums(is.na(sp))
+```
+
+```{r}
+library(VIM)
+aggr_plot <- aggr(sp, col=c('navyblue','red'), numbers=TRUE, sortVars=TRUE, labels=names(data), cex.axis=.7, gap=3, ylab=c("Histogram of missing data","Pattern"))
+```
+**There are 3 different columns with null values in it.**
+
+<br>
+
+### 2. Imputing the Missing values with mean
+```{r}
+# impute with the mean
+sp$raisedhands[is.na(sp$raisedhands)] <- mean(sp$raisedhands,na.rm=TRUE)
+
+sp$VisITedResources[is.na(sp$VisITedResources)] <- mean(sp$VisITedResources,na.rm=TRUE)
+
+sp$AnnouncementsView[is.na(sp$AnnouncementsView)] <- mean(sp$AnnouncementsView,na.rm=TRUE)
+```
+**I have imputed the null values with its median.**
+
+<br>
+
+### 3. Checking the number of unique values for each categorical column in the data i.e.,levels of each categorical column in the data
+```{r}
+apply(sp,2, function(x) length(unique(x)))
+```
+**There are columns with 2,3,14 unique values**
+
+<br>
+
+### 4. Correlation plot
+```{r}
+library(GGally)
+ggcorr(sp,label=T)
+```
+### 5. Analysing both numerical and categorical variables at one time
+```{r}
+library(Hmisc)
+describe(sp)
+```
+
+### 6. Checking the distribution of the data
+```{r}
+library(funModeling) 
+plot_num(sp)
+```
+<br>
+
+## BUILDING THE MODEL
+```{r}
+#Installing the packages
+#install.packages('data.table')
+#install.packages('mlr')
+#install.packages('h2o')
+
+#load libraries 
+library('data.table')
+library('mlr')
+library('h2o')
+```
+
+### Splitting the model
+```{r}
+set.seed(480)
+spts=sample(1:nrow(sp),0.7*nrow(sp))#70% Training Data
+train<-sp[spts,]
+test<-sp[-spts,]
+```
+
+### Encoding the categorical variables
+```{r}
+#install.packages("superml")
+library(superml)
+
+cat_cols <- names(train)[sapply(train, is.character)]
+
+for(c in cat_cols){
+    lbl <- LabelEncoder$new()
+    lbl$fit(c(train[[c]], test[[c]]))
+    train[[c]] <- lbl$transform(train[[c]])
+    test[[c]] <- lbl$transform(test[[c]])
+}
+```
+
+<br>
+
+
+```{r}
+library(randomForest)
+
+#fit the random forest model
+model <- randomForest(formula = Class ~ .,data = train)
+model
+```
+**The Mean Squared error of the model is less, but it cannot be negligible. So, we have the scope of improvement.**
+
+<br>
+
+```{r}
+#plot the test MSE by number of trees
+plot(model)
+```
+**The error is decreased as the number of trees increases.**
+
+<br>
+
+
+### Trying to tune the parameter and increase the model accuracy
+
+
+<br>
+
+### Converting the categorical to factor 
+
+```{r}
+set.seed(480)
+spts=sample(1:nrow(sp),0.7*nrow(sp))#70% Training Data
+train<-sp[spts,]
+test<-sp[-spts,]
+```
+<br>
+```{r}
+setDT(train)
+setDT(test)
+```
+<br>
+```{r}
+#install.packages
+library(superml)
+
+s <- subset(sp,select=-c(Class))
+cat_cols <- names(s)[sapply(s, is.character)]
+
+for(c in cat_cols){
+    lbl <- LabelEncoder$new()
+    lbl$fit(c(train[[c]], test[[c]]))
+    train[[c]] <- lbl$transform(train[[c]])
+    test[[c]] <- lbl$transform(test[[c]])
+}
+
+```
+
+<br>
+
+```{r}
+#remove extra character from target variable
+library(stringr)
+test [,Class:= substr(Class,start = 1,stop = nchar(Class)-1)]
+
+#remove leading whitespaces
+#char_col <- colnames(train)[ sapply (test,is.character)]
+#for(i in char_col) set(train,j=i,value = str_trim(train[[i]],side = "left"))
+
+#for(i in char_col) set(test,j=i,value = str_trim(test[[i]],side = "left"))
+```
+<br>
+
+```{r}
+#using one hot encoding 
+labels <- train$Class 
+ts_label <- test$Class
+new_tr <- model.matrix(~.+0,data = train[,-c("Class"),with=F]) 
+new_ts <- model.matrix(~.+0,data = test[,-c("Class"),with=F])
+
+#convert factor to numeric 
+labels <-  as.numeric(as.factor((labels)))-1
+ts_label <- as.numeric(as.factor((ts_label)))-1
+```
+<br>
+```{r}
+#install.packages("xgboost")
+library(xgboost)
+#preparing matrix 
+dtrain <- xgb.DMatrix(data = new_tr,label=labels) 
+dtest <- xgb.DMatrix(data = new_ts,label=ts_label)
+```
+<br>
+```{r}
+#default parameters
+params <- list(booster = "gbtree", objective = "reg:squarederror", eta=0.3, gamma=0, max_depth=6, min_child_weight=1, subsample=1, colsample_bytree=1)
+```
+<br>
+
+#### Using the inbuilt xgb.cv function, let's calculate the best nround for this model. In addition, this function also returns CV error, which is an estimate of test error.
+```{r}
+xgbcv <- xgb.cv( params = params, data = dtrain, nrounds = 100, nfold = 5, print_every_n = 10, early_stop_round = 20, maximize = F)
+```
+<BR>
+**Best iteration is 100th iteration**
+
+<br>
+
+```{r}
+#first default - model training
+xgb1 <- xgb.train (params = params, data = dtrain, nrounds = 100, watchlist = list(val=dtest,train=dtrain), print_every_n = 10, early_stop_round = 10, maximize = F , eval_metric = "error")
+xgbpred <- predict (xgb1,dtest)
+
+library(caret)
+RMSE(xgbpred,ts_label)
+```
+<BR>
+
+```{r}
+mat <- xgb.importance (feature_names = colnames(new_tr),model = xgb1)
+xgb.plot.importance (importance_matrix = mat[1:20]) 
+```
+<BR>
+### The influencial factors on the performance of the students are in the following order-
+<BR>
+### Visited Resources play important role then followed by the raised hands.
+<BR>
+### Then comes anouncement views and discussions
+<BR>
+### Students absence also plays important role in their performance.
+<BR>
+### The Grading and the Nationality is almost having the same impact.
+<BR>
+### The influence of the other factors are less.
+
+<br>
+
+```{r}
+#Encoing scheme
+#install.packages("superml")
+library(mlr)
+
+cat_cols <- names(train)[sapply(train, is.character)]
+
+for(c in cat_cols){
+    lbl <- LabelEncoder$new()
+    lbl$fit(c(train[[c]], test[[c]]))
+    train[[c]] <- lbl$transform(train[[c]])
+    test[[c]] <- lbl$transform(test[[c]])
+}
+```
+
+
+### Now lets build model by taking only the highly influencial attributes
+```{r}
+library(randomForest)
+
+model_f1 <- randomForest(formula = Class ~VisITedResources+raisedhands+AnnouncementsView+Discussion+StudentAbsenceDays,data = train)
+model_f1
+```
+
+```{r}
+#plot the test MSE by number of trees
+par(mfrow=c(1,2))
+plot(model)
+plot(model_f1)
+```
+<BR>
+**We can notice that, almost before and after tuning the model we are getting almost similar RMSE scores. But after tunning the parameter and considering only most influencial attributes there is slight change in the error and the variance factor. The variance factor is decreased after tuning the model and the error have slightly increase in 0.12 order.**
+
+<br>
+<BR>
+
+<B><U>
+
+## CONCLUSION :-
+
+</B></U>
+
+<BR>
+
+**The most inluencial factors on the academic performance of the students are -**
+**Visited Resources play important role then followed by the raised hands.Then comes anouncement views and discussions. Students absence also plays important role in their performance.The Grading and the Nationality is almost having the same impact.The influence of the other factors are less.Most importantly the parents involvement is not that infuenced on the students academic performance.As different country have different academic evaluation criteria, this attribute also gave the +ve impact on the student's performace Place of birth, section, semester doesn't have that influence on the student's performance.Finally, the demographical features of students doesn't effect their performance, whereas their behavioural features have great influencial. So, we need to focus on student's behavioural factors to improve their academics and overall growth.**
+
+**Coming to the model usage, firstly I have used random forest model. I have got pretty good score with hgh variance. So, i have used xgb booster and checked the rmse of train and test. Its average is 0.3 for both train and test. Then, i have found the most ifluenced features using xgb and again rebuilt the random forest model on those attributes, which have gave me good results.**
+
+<br>
+<b><u>
+
+## REFERENCES
+
+</B></U>
+
+<BR>
+
+**1. Amrieh, E. A., Hamtini, T., & Aljarah, I. (2016). Mining Educational Data to Predict Student’s academic Performance using Ensemble Methods. International Journal of Database Theory and Application, 9(8), 119-136.**
+
+<BR>
+
+**2. Amrieh, E. A., Hamtini, T., & Aljarah, I. (2015, November). Preprocessing and analyzing educational data set using X-API for improving student's performance. In Applied Electrical Engineering and Computing Technologies (AEECT), 2015 IEEE Jordan Conference on (pp. 1-5). IEEE.**
+
+<BR>
+
+**3. https://www.kaggle.com/aljarah/xAPI-Edu-Data**
+
+<BR>
+
+**4. https://www.hackerearth.com/practice/machine-learning/machine-learning-algorithms/beginners-tutorial-on-xgboost-parameter-tuning-r/tutorial/**
+
+<BR>
